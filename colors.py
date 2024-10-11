@@ -1,16 +1,16 @@
 import pandas as pd
 
 def style_dataframe(df):
-    def color_headers(s):
-        if s.name == df.index.name or s.name == '':
-            return ['background-color: yellow'] * len(s)
-        elif str(s.name).startswith('Q'):
-            return ['background-color: lightblue'] * len(s)
+    def color_headers(col):
+        if col.name == df.index.name or col.name == '':
+            return ['background-color: yellow'] * len(col)
+        elif str(col.name).startswith('Q'):
+            return ['background-color: lightblue'] * len(col)
         else:
-            return ['background-color: lightbrown'] * len(s)
+            return ['background-color: #D2B48C'] * len(col)  # Light brown
     
     return (df.style
-              .apply(color_headers)
+              .apply(lambda _: pd.DataFrame(color_headers(_), index=_.index, columns=[_.name]))
               .set_properties(**{'text-align': 'left', 'border': '1px solid black', 'padding': '8px'})
               .set_table_styles([
                   {'selector': 'th', 'props': [('font-weight', 'bold'), ('border', '1px solid black'), ('padding', '8px')]},
