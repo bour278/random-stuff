@@ -4,29 +4,31 @@ def send_email(recipient, subject):
     mail.To = recipient
     mail.Subject = subject
     
-    # Custom styling for the dataframe
-    styles = """
-    <style>
-        table {border-collapse: collapse; width: 100%;}
-        th, td {border: 1px solid black; padding: 8px; text-align: left;}
-        th {font-weight: bold;}
-        th:first-child {background-color: yellow !important;}  /* Index header */
-        th[data-column^="Q"] {color: blue !important;}  /* Headers starting with Q */
-        th:not([data-column^="Q"]):not(:first-child) {color: brown !important;}  /* Other headers */
-    </style>
-    """
-    
     # Convert dataframe to HTML
     html_table = summary_df.to_html(classes='dataframe', escape=False)
     
-    # Modify the HTML to add data-column attributes to headers
+    # Apply inline styles to headers
     import re
-    def add_data_column(match):
-        return f'<th data-column="{match.group(1)}">{match.group(1)}'
     
-    html_table = re.sub(r'<th.*?>(.+?)</th>', add_data_column, html_table)
+    def style_header(match):
+        header_text = match.group(1)
+        if header_text == summary_df.index.name or header_text == '':  # Index header
+            return f'<th style="background-color: yellow; border: 1px solid black; padding: 8px; text-align: left;">{header_text}</th>'
+        elif header_text.startswith('Q'):  # Headers starting with Q
+            return f'<th style="color: blue; border: 1px solid black; padding: 8px; text-align: left;">{header_text}</th>'
+        else:  # Other headers
+            return f'<th style="color: brown; border: 1px solid black; padding: 8px; text-align: left;">{header_text}</th>'
     
-    mail.HTMLBody = f"<html><head>{styles}</head><body>{html_table}</body></html>"
+    html_table = re.sub(r'<th.*?>(.+?)</th>', style_header, html_table)
+    
+    # Style for the table and cells
+    table_style = 'style="border-collapse: collapse; width: 100%;"'
+    cell_style = 'style="border: 1px solid black; padding: 8px; text-align: left;"'
+    
+    html_table = html_table.replace('<table', f'<table {table_style}')
+    html_table = html_table.replace('<td', f'<td {cell_style}')
+    
+    mail.HTMLBody = f"<html><body>{html_table}</body></html>"
     mail.Send()
 
 send_email("vish.bordia@rbccm.com", "Funding Balance")
