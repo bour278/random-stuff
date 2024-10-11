@@ -2,15 +2,19 @@ import pandas as pd
 
 def style_dataframe(df):
     def color_headers(col):
-        if col.name == df.index.name or col.name == '':
-            return ['background-color: yellow'] * len(col)
-        elif str(col.name).startswith('Q'):
+        # Style for headers
+        if str(col.name).startswith('Q'):
             return ['background-color: lightblue'] * len(col)
         else:
             return ['background-color: #D2B48C'] * len(col)  # Light brown
-    
+
+    def color_index(idx):
+        # Style for index
+        return ['background-color: yellow'] * len(idx)
+
     return (df.style
-              .apply(lambda _: pd.DataFrame(color_headers(_), index=_.index, columns=[_.name]))
+              .apply(color_headers, axis=0)  # Apply to headers
+              .apply(color_index, axis=1)    # Apply to index
               .set_properties(**{'text-align': 'left', 'border': '1px solid black', 'padding': '8px'})
               .set_table_styles([
                   {'selector': 'th', 'props': [('font-weight', 'bold'), ('border', '1px solid black'), ('padding', '8px')]},
@@ -19,7 +23,10 @@ def style_dataframe(df):
               ])
            )
 
-def send_email(recipient, subject):
+def send_email(recipient, subject, summary_df):
+    import win32com.client as win32
+    import pythoncom
+    
     outlook = win32.Dispatch('outlook.application', pythoncom.CoInitialize())
     mail = outlook.CreateItem(0)
     mail.To = recipient
@@ -34,4 +41,6 @@ def send_email(recipient, subject):
     mail.HTMLBody = f"<html><body>{html_table}</body></html>"
     mail.Send()
 
-send_email("vish.bordia@rbccm.com", "Funding Balance")
+# Example usage:
+# summary_df = pd.DataFrame(...)  # Your DataFrame here
+# send_email("vish.bordia@rbccm.com", "Funding Balance", summary_df)
