@@ -1,0 +1,23 @@
+import pandas as pd
+from datetime import date
+
+# Sample dictionary (replace this with your actual dictionary)
+date_dict = {
+    date(2024, 1, 15): 100,
+    date(2024, 3, 20): 150,
+    date(2024, 7, 5): 200,
+    date(2024, 9, 10): 250,
+    date(2024, 12, 25): 300
+}
+
+# Create DataFrame
+df = pd.DataFrame(list(date_dict.items()), columns=['Date', 'Value'])
+
+# Add Quarter column
+df['Quarter'] = df['Date'].dt.to_period('Q').apply(lambda r: f'Q{r.quarter} {r.year}')
+
+# Add Month column
+df['Month'] = df['Date'].dt.strftime('%b-%Y')
+
+# Display the result
+print(df)
