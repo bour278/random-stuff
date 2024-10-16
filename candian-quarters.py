@@ -1,0 +1,1 @@
+quarter = np.round(df[df['Date'].dt.year == (pd.Timestamp.today().year if pd.Timestamp.today().month >= 4 else pd.Timestamp.today().year - 1)].groupby(df['Date'].dt.map(lambda d: next(q for q, m in {1:4, 2:7, 3:10, 4:1}.items() if d.month >= m or (q == 4 and d.month < 4))))['Value'].last()/1e6)
