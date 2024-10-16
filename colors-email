@@ -52,3 +52,40 @@ html_table = df_formatted.to_html(escape=False)
 
 # Print the HTML table
 print(html_table)
+
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>Column1</th>
+      <th>Column2</th>
+      <th>Column3</th>
+      <th>Column4</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.0</td>
+      <td>5.0</td>
+      <td>9.0</td>
+      <td>a</td>
+    </tr>
+    <tr>
+      <td><span style="color:red;">[-2,000.0]</span></td>
+      <td>6.0</td>
+      <td>10.0</td>
+      <td>b</td>
+    </tr>
+    <tr>
+      <td>3.0</td>
+      <td><span style="color:red;">[-7,000.0]</span></td>
+      <td>11.0</td>
+      <td>c</td>
+    </tr>
+    <tr>
+      <td><b>4.0</b></td>
+      <td><b>8.0</b></td>
+      <td><b><span style="color:red;">[-12,000.0]</span></b></td>
+      <td><b>d</b></td>
+    </tr>
+  </tbody>
+</table>
