@@ -1,34 +1,32 @@
-  </tbody>
-</table>
 import pandas as pd
 
 # Sample DataFrame
-df = pd.DataFrame({
-    'Q1': [1, 2],
-    'A2': [3, 4],
-    'Q3': [5, 6]
-})
+data = {
+    'Column1': [1.0, -2000.0, 3.0, 4.0],
+    'Column2': [5.0, 6.0, -7000.0, 8.0],
+    'Column3': [9.0, 10.0, 11.0, -12000.0],
+    'Column4': ['a', 'b', 'c', 'd']  # Assuming this column is not numeric
+}
 
-# Function to apply styles to column headers
-def style_headers(s):
-    return ['background-color: blue' if col.startswith('Q') else 'background-color: brown' for col in s]
+df = pd.DataFrame(data)
 
-# Apply styles to the DataFrame
-styled_df = df.style.set_table_styles(
-    {
-        # Style for column headers
-        'columns': [{'selector': 'th.col_heading', 'props': [('background-color', 'brown')]}],
-        # Style for index header
-        'index_name': [{'selector': 'th.row_heading', 'props': [('background-color', 'yellow')]}]
-    }
-)
+# Function to format negative numbers with brackets, commas, and color
+def format_negative(val, is_last_row):
+    if isinstance(val, (int, float)) and val < 0:
+        formatted_val = f'<span style="color:red;">[{format(val, ",")}]</span>'
+    else:
+        formatted_val = str(val)
+    
+    if is_last_row:
+        return f'<b>{formatted_val}</b>'
+    else:
+        return formatted_val
 
-# Update specific column headers based on condition
-for col in df.columns:
-    if col.startswith('Q'):
-        styled_df = styled_df.set_table_styles(
-            {col: [{'selector': f'th.col_heading.level0.{df.columns.get_loc(col)}', 'props': [('background-color', 'blue')]}]},
-            overwrite=False
-        )
+# Apply the function to the numeric columns
+df_formatted = df.applymap(lambda x: format_negative(x, df.index[-1] == df.index[df.index.get_loc(x.name)]))
 
-styled_df
+# Convert the DataFrame to an HTML table
+html_table = df_formatted.to_html(escape=False)
+
+# Print the HTML table
+print(html_table)
