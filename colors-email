@@ -11,22 +11,21 @@ data = {
 df = pd.DataFrame(data)
 
 # Function to format negative numbers with brackets, commas, and color
-def format_negative(val, is_last_row):
+def format_negative(val):
     if isinstance(val, (int, float)) and val < 0:
-        formatted_val = f'<span style="color:red;">[{format(val, ",")}]</span>'
+        return f'<span style="color:red;">[{format(val, ",")}]</span>'
     else:
-        formatted_val = str(val)
-    
-    if is_last_row:
-        return f'<b>{formatted_val}</b>'
-    else:
-        return formatted_val
+        return val
 
 # Apply the function to the numeric columns
-df_formatted = df.applymap(lambda x: format_negative(x, df.index[-1] == df.index[df.index.get_loc(x.name)]))
+df_formatted = df.applymap(format_negative)
 
 # Convert the DataFrame to an HTML table
 html_table = df_formatted.to_html(escape=False)
 
-# Print the HTML table
-print(html_table)
+# Find the last row in the HTML table and make it bold
+last_row_index = html_table.rfind('<tr>')
+html_table_bold_last_row = html_table[:last_row_index] + '<tr style="font-weight: bold;">' + html_table[last_row_index + 4:]
+
+# Print the modified HTML table
+print(html_table_bold_last_row)
