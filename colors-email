@@ -21,3 +21,6 @@ df['Month'] = df['Date'].dt.strftime('%b-%Y')
 
 # Display the result
 print(df)
+
+#mask = df.apply(lambda row: row.astype(str).str.contains('LHU', case=False).any(), axis=1)
+#result = df.loc[mask.idxmax():].reset_index(drop=True)
