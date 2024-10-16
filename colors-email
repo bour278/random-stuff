@@ -24,3 +24,31 @@ print(df)
 
 #mask = df.apply(lambda row: row.astype(str).str.contains('LHU', case=False).any(), axis=1)
 #result = df.loc[mask.idxmax():].reset_index(drop=True)
+
+import pandas as pd
+
+# Sample DataFrame
+data = {
+    'Column1': [1.0, -2.0, 3.0, 4.0],
+    'Column2': [5.0, 6.0, -7.0, 8.0],
+    'Column3': [9.0, 10.0, 11.0, -12.0],
+    'Column4': ['a', 'b', 'c', 'd']  # Assuming this column is not numeric
+}
+
+df = pd.DataFrame(data)
+
+# Function to format negative numbers with brackets and color
+def format_negative(val):
+    if isinstance(val, (int, float)) and val < 0:
+        return f'<span style="color:red;">[{val}]</span>'
+    else:
+        return val
+
+# Apply the function to the numeric columns
+df_formatted = df.applymap(format_negative)
+
+# Convert the DataFrame to an HTML table
+html_table = df_formatted.to_html(escape=False)
+
+# Print the HTML table
+print(html_table)
