@@ -1,25 +1,3 @@
-import pandas as pd
-
-# Sample DataFrame
-data = {
-    'Column1': [1.0, -2000.0, 3.0, 4.0],
-    'Column2': [5.0, 6.0, -7000.0, 8.0],
-    'Column3': [9.0, 10.0, 11.0, -12000.0],
-    'Column4': ['a', 'b', 'c', 'd']  # Assuming this column is not numeric
-}
-
-df = pd.DataFrame(data)
-
-# Function to format negative numbers with brackets, commas, and color
-def format_negative(val):
-    if isinstance(val, (int, float)) and val < 0:
-        return f'<span style="color:red;">[{format(val, ",")}]</span>'
-    else:
-        return val
-
-# Apply the function to the numeric columns
-df_formatted = df.applymap(format_negative)
-
 # Convert the DataFrame to an HTML table
 html_table = df_formatted.to_html(escape=False)
 
@@ -27,5 +5,18 @@ html_table = df_formatted.to_html(escape=False)
 last_row_index = html_table.rfind('<tr>')
 html_table_bold_last_row = html_table[:last_row_index] + '<tr style="font-weight: bold;">' + html_table[last_row_index + 4:]
 
-# Print the modified HTML table
-print(html_table_bold_last_row)
+# Add CSS to change the background color of the entire column
+css_style = """
+<style>
+  table tr td:nth-child(4) {
+    background-color: blue;
+    color: white;
+  }
+</style>
+"""
+
+# Combine the CSS and the modified HTML table
+final_html = css_style + html_table_bold_last_row
+
+# Print the final HTML
+print(final_html)
