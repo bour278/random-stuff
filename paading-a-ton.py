@@ -1,21 +1,18 @@
-def style_df(df):
-    return df.style.set_table_styles([
-        {'selector': 'th, td', 'props': [
-            ('padding', '2px 5px'),
-            ('white-space', 'normal'),
-            ('max-width', 'none'),
-            ('width', 'auto'),
-            ('height', 'auto'),
-            ('line-height', '1.2')
-        ]},
-        {'selector': 'table', 'props': [
-            ('border-collapse', 'collapse'),
-            ('width', '100%')
-        ]}
-    ])
+import pandas as pd
+import numpy as np
 
-# Apply the style to your DataFrame
-styled_df = style_df(your_dataframe)
+# Create a sample DataFrame
+df = pd.DataFrame(np.random.randn(10, 4), columns=['A', 'B', 'C', 'D'])
 
-# To render the styled DataFrame as HTML
-html_output = styled_df.to_html()
+# Define a function to style the last row
+def style_last_row(row):
+    if row.name == df.index[-1]:
+        return ['background-color: red'] * len(row)
+    else:
+        return [''] * len(row)
+
+# Apply the styling
+styled_df = df.style.apply(style_last_row, axis=1)
+
+# Display the styled DataFrame
+styled_df
