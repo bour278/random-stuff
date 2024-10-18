@@ -1,0 +1,19 @@
+df['ord_date'] = pd.to_datetime(df['ord_date'])
+
+# Custom function to map dates to non-standard quarters
+def custom_quarter(date):
+    month = date.month
+    if month in [11, 12, 1]:
+        return f"{date.year}Q1"
+    elif month in [2, 3, 4]:
+        return f"{date.year}Q2"
+    elif month in [5, 6, 7]:
+        return f"{date.year}Q3"
+    else:
+        return f"{date.year}Q4"
+
+# Apply the custom function
+df['custom_quarter'] = df['ord_date'].apply(custom_quarter)
+
+# Group by custom quarter and calculate the sum of purch_amt
+result = df.groupby('custom_quarter')['purch_amt'].sum()
