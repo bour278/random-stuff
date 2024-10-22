@@ -1,7 +1,6 @@
 import numpy as np
-from dtaidistance import dtw
-from dtaidistance import dtw_visualisation as dtwvis
 import matplotlib.pyplot as plt
+from dtw import *
 
 # Generate sample data
 np.random.seed(42)
@@ -11,49 +10,73 @@ y = np.sin(t + 0.5) + 0.1 * np.random.randn(100)  # Sequence to be aligned
 
 def analyze_dtw_path(x, y):
     """
-    Analyze and visualize DTW path between two sequences.
+    Analyze and visualize DTW path between two sequences using dtw-python.
     
     Parameters:
         x (array): Reference sequence
         y (array): Sequence to be aligned
     """
-    # Calculate DTW distance matrix and optimal path
-    d = dtw.distance_matrix_fast(np.array([x, y]))
-    path = dtw.warping_paths(x, y)
-    best_path = dtw.best_path(path)
+    # Calculate DTW alignment
+    alignment = dtw(x, y, keep_internals=True)
     
     # Create figure with subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
     
-    # Plot original sequences
-    ax1.plot(t, x, 'b-', label='Reference (x)')
-    ax1.plot(t, y, 'r-', label='Target (y)')
-    ax1.set_title('Original Sequences')
+    # Plot 1: Original sequences with matching points
+    ax1.plot(t, x, 'b-', label='Reference (x)', linewidth=2)
+    ax1.plot(t, y, 'r-', label='Target (y)', linewidth=2)
+    ax1.set_title('Sequences with DTW Matching Points')
     ax1.set_xlabel('Time')
     ax1.set_ylabel('Amplitude')
     ax1.legend()
     ax1.grid(True)
     
-    # Visualize DTW path
-    dtwvis.plot_warpingpaths(x, y, path, best_path, ax=ax2)
-    ax2.set_title('DTW Warping Path')
-    
-    # Add connecting lines between matched points
-    for idx_x, idx_y in best_path:
+    # Draw matching lines between sequences
+    for idx_x, idx_y in zip(alignment.index1, alignment.index2):
         ax1.plot([t[idx_x], t[idx_y]], [x[idx_x], y[idx_y]], 
                  'g-', alpha=0.3, linewidth=0.5)
     
+    # Plot 2: DTW distance matrix and optimal path
+    im = ax2.imshow(alignment.costMatrix, 
+                    origin='lower', 
+                    cmap='YlGnBu',
+                    aspect='auto')
+    
+    # Plot optimal path
+    path_x = alignment.index2
+    path_y = alignment.index1
+    ax2.plot(path_x, path_y, 'r-', linewidth=2, label='Optimal path')
+    
+    ax2.set_title('DTW Cost Matrix and Optimal Path')
+    ax2.set_xlabel('Target Index')
+    ax2.set_ylabel('Reference Index')
+    plt.colorbar(im, ax=ax2, label='Cost')
+    ax2.legend()
+    
     plt.tight_layout()
-    return fig, path, best_path
+    return fig, alignment
 
 # Run the analysis
-fig, path, best_path = analyze_dtw_path(x, y)
+fig, alignment = analyze_dtw_path(x, y)
 
-# Print some statistics
-dtw_distance = path[best_path[-1][0], best_path[-1][1]]
-print(f"DTW distance: {dtw_distance:.4f}")
-print(f"Number of path steps: {len(best_path)}")
+# Print alignment statistics
+print(f"DTW distance: {alignment.distance:.4f}")
+print(f"Normalized distance: {alignment.normalizedDistance:.4f}")
+print(f"Number of steps in path: {len(alignment.index1)}")
+
+# Additional analysis of the warping
+step_pattern = alignment.stepPattern
+print("\nStep pattern type:", step_pattern.hint)
+print("Step pattern symmetry:", step_pattern.symmetry)
+
+# Compute and display path characteristics
+path_length = len(alignment.index1)
+diagonal_moves = sum(1 for i in range(path_length-1) 
+                    if (alignment.index1[i+1] - alignment.index1[i] == 1 and 
+                        alignment.index2[i+1] - alignment.index2[i] == 1))
+print(f"\nDiagonal moves: {diagonal_moves}")
+print(f"Diagonal percentage: {(diagonal_moves/path_length)*100:.2f}%")
 
 # Save the visualization
-plt.savefig('dtw_analysis.png')
+plt.savefig('dtw_analysis.png', dpi=300, bbox_inches='tight')
 plt.close()
