@@ -12,82 +12,80 @@ class RBAMeetingDatesFetcher:
         self.session = self._create_session()
     
     def _get_proxy_settings(self):
-        """Get proxy settings from environment variables"""
         return {
             'http': os.environ.get('HTTP_PROXY') or os.environ.get('http_proxy'),
             'https': os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
         }
     
     def _create_session(self):
-        """Create a session with proxy and retry settings"""
         session = requests.Session()
-        
-        # Configure retry strategy
-        retry = Retry(
-            total=5,
-            backoff_factor=2,
-            status_forcelist=[500, 502, 503, 504, 404, 429]
-        )
-        
-        # Set up adapter with retry strategy
+        retry = Retry(total=5, backoff_factor=2,
+                     status_forcelist=[500, 502, 503, 504, 404, 429])
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
-        
-        # Set headers
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'
         })
-        
-        # Set proxy settings
         session.proxies = self._get_proxy_settings()
-        
         return session
-    
+
+    def _clean_text(self, text: str) -> str:
+        text = text.replace('\xa0', ' ')
+        text = text.replace('&ndash;', '-')
+        text = text.replace('–', '-')
+        text = text.replace('—', '-')
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    def _parse_date(self, date_str: str, year: str) -> datetime:
+        """Parse a single date string into a datetime object"""
+        # First clean the date string
+        date_str = self._clean_text(date_str)
+        
+        try:
+            # Try parsing with day first (e.g., "31 March")
+            return datetime.strptime(f"{date_str} {year}", '%d %B %Y')
+        except ValueError as e:
+            print(f"Error parsing date '{date_str} {year}': {e}")
+            return None
+
     def _parse_date_range(self, date_text: str, year: str) -> list:
-        """
-        Parse a date range string into two datetime objects
-        Example inputs: "5–6 February", "31 March–1 April"
-        """
-        # Clean up the text
-        date_text = date_text.replace('\xa0', ' ').strip()
+        """Parse a date range string into datetime objects"""
         dates = []
+        clean_text = self._clean_text(date_text)
+        print(f"Parsing date text: '{clean_text}'")
         
-        # Split on either – or -
-        parts = re.split(r'[–-]', date_text)
-        if len(parts) != 2:
-            return dates
-        
-        start_part, end_part = parts[0].strip(), parts[1].strip()
-        
-        # Handle case where month is in first part
-        if ' ' in start_part:
-            start_month = start_part.split()[0]
-            start_day = start_part.split()[1]
-            
-            # Handle end date
-            if ' ' in end_part:  # Month is specified in end part
-                end_date = f"{end_part} {year}"
-            else:  # Use month from start part
-                end_date = f"{start_month} {end_part} {year}"
+        if '-' in clean_text:
+            parts = clean_text.split('-')
+            if len(parts) == 2:
+                start_text, end_text = parts
                 
-            start_date = f"{start_month} {start_day} {year}"
-            
-            try:
-                dates.append(datetime.strptime(start_date, '%B %d %Y'))
-                dates.append(datetime.strptime(end_date, '%B %d %Y'))
-            except ValueError as e:
-                print(f"Error parsing dates '{start_date}' or '{end_date}': {e}")
+                # Handle different date formats
+                if ' ' in start_text:  # e.g., "31 March-1 April"
+                    start_date = self._parse_date(start_text.strip(), year)
+                    if ' ' in end_text:  # Full date in end part
+                        end_date = self._parse_date(end_text.strip(), year)
+                    else:  # Only day in end part
+                        # Use the month from start date
+                        start_month = start_text.strip().split()[1]
+                        end_date = self._parse_date(f"{end_text.strip()} {start_month}", year)
+                else:  # e.g., "5-6 February"
+                    month = end_text.strip().split()[-1]
+                    start_date = self._parse_date(f"{start_text.strip()} {month}", year)
+                    end_date = self._parse_date(f"{end_text.strip()}", year)
+                
+                if start_date and end_date:
+                    dates.extend([start_date, end_date])
+                    print(f"Successfully parsed: {[d.strftime('%Y-%m-%d') for d in dates]}")
         
         return dates
-    
+
     def _extract_dates_from_html(self, html_content: str) -> list:
-        """Extract all meeting dates from the HTML content"""
         soup = BeautifulSoup(html_content, 'html.parser')
         datetime_objects = []
         current_year = None
         
-        # Find all h2 elements (years) and their following ul elements (date lists)
         for h2 in soup.find_all('h2'):
             year_text = h2.get_text().strip()
             if re.match(r'^20\d{2}$', year_text):
@@ -95,20 +93,19 @@ class RBAMeetingDatesFetcher:
                 ul = h2.find_next('ul')
                 
                 if ul:
+                    print(f"\nProcessing year {current_year}")
                     for li in ul.find_all('li'):
                         date_text = li.get_text().strip()
+                        print(f"Found list item: {date_text}")
                         if date_text:
                             dates = self._parse_date_range(date_text, current_year)
                             datetime_objects.extend(dates)
         
-        return sorted(datetime_objects)  # Return sorted dates
+        return sorted(datetime_objects)
     
     def fetch_dates(self) -> list:
-        """Main method to fetch and parse RBA meeting dates"""
         try:
             print("Fetching RBA meeting dates...")
-            print(f"Using proxies: {self.session.proxies}")
-            
             response = self.session.get(self.url, timeout=30)
             response.raise_for_status()
             
@@ -130,22 +127,14 @@ class RBAMeetingDatesFetcher:
         
         return []
 
-def format_dates(dates: list, format_str: str = '%Y-%m-%d') -> list:
-    """Format datetime objects to strings"""
-    return [date.strftime(format_str) for date in dates]
-
 def main():
-    # Create fetcher instance
     fetcher = RBAMeetingDatesFetcher()
-    
-    # Fetch dates
     dates = fetcher.fetch_dates()
     
-    # Print results
     if dates:
         print("\nSuccessfully parsed dates:")
-        for date_str in format_dates(dates):
-            print(date_str)
+        for date in dates:
+            print(date.strftime('%Y-%m-%d'))
         print(f"\nTotal dates found: {len(dates)}")
     else:
         print("No dates were retrieved.")
