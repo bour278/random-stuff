@@ -1,11 +1,12 @@
-findTablesInScript:{[script]
-    / Split into lines and clean spaces
-    lines:trim each "\n" vs script;
-    / Get lines with assignments (contains :)
-    assignLines:lines where lines like "*:*";
-    / Extract first token before : (the variable name)
-    varNames:`$trim each first each(" " vs/:first each":" vs/:assignLines);
-    / Filter for ones that exist and are tables
-    tables:varNames where {(x in system"v") and (type get x) in 98 99h} each varNames;
-    asc tables
+f:{
+    a:&[count'[x];&/[":"\:/:x;8h]];  /find assignment rows
+    v:`$*'(" "\:*':":"\:x a);         /extract vars (first token before :)
+    v@&{(3=@){$[@x;98 99h~\:@!x;0b]}/x}'[v]  /filter for tables
  };
+
+/ Same thing
+f2:{`$*''" "\:*':":"\:x@&[#:'x;&/[":"\:/:x;8h]]@&{(3=@){$[@x;98 99h~\:@!x;0b]}/x}'`$*''" "\:*':":"\:x@&[#:'x;&/[":"\:/:x;8h]]};
+
+/ Usage:
+/x:("t:([];c:1 2)";"a:42";"s:([k:1]v:2)")
+/f[x]
