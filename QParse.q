@@ -4,6 +4,8 @@ f:{
     v@&{(3=@){$[@x;98 99h~\:@!x;0b]}/x}'[v]  /filter for tables
  };
 
+f:{v:`$*'" "vs'*'":"vs'x@&x like"*:*";v@&{(x in.Q.v)&(type@get@x)in 98 99h}'v};
+
 f:{v:`$*''" "vs'*'":"vs'x w:&(~^#:'x)&x like"*:*";v@&{(x in v:system"v")&(type get x)in 98 99h}'v};
 
 / Same thing
