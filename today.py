@@ -2,141 +2,169 @@ import streamlit as st
 import pandas as pd
 import datetime
 import time
-import schedule
 import pickle
 from datetime import datetime, time as dt_time
 import os
 
-# File path for pickle storage
+st.set_page_config(page_title="RateHub 🍦")
+
+st.markdown("""
+    <style>
+        .title {
+            color: #FF6B35;
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 1em;
+        }
+        .stButton>button {
+            background-color: #FF6B35;
+            color: white;
+        }
+        .stButton>button:hover {
+            background-color: #FF8C61;
+        }
+        div[data-testid="stSelectbox"] label {
+            color: #FF6B35;
+        }
+        .section-header {
+            color: #FF6B35;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-top: 1em;
+        }
+    </style>
+    <div class="title">RateHub 🍦</div>
+""", unsafe_allow_html=True)
+
+if 'ratings_df' not in st.session_state:
+    st.session_state['ratings_df'] = pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+
+if 'votes' not in st.session_state:
+    st.session_state['votes'] = []
+
+if 'last_vote_time' not in st.session_state:
+    st.session_state['last_vote_time'] = None
+
 RATINGS_FILE = 'ratings.pkl'
 
-# Initialize session state variables if they don't exist
-if 'ratings_df' not in st.session_state:
+def load_data():
     try:
-        # Try to load existing data
-        with open(RATINGS_FILE, 'rb') as f:
-            st.session_state.ratings_df = pickle.load(f)
-    except (FileNotFoundError, EOFError, pickle.PickleError):
-        # Create new DataFrame if file doesn't exist or is corrupted
-        st.session_state.ratings_df = pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
-        # Save the initial empty DataFrame
-        with open(RATINGS_FILE, 'wb') as f:
-            pickle.dump(st.session_state.ratings_df, f)
+        if os.path.exists(RATINGS_FILE):
+            with open(RATINGS_FILE, 'rb') as f:
+                return pickle.load(f)
+        return pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+    except Exception:
+        return pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
 
-if 'last_submission_date' not in st.session_state:
-    st.session_state.last_submission_date = None
-
-def is_submission_time():
-    """Check if current time is around 5:00 PM (allowing 30 minutes before and after)"""
-    current_time = datetime.now().time()
-    target_time = dt_time(17, 0)  # 5:00 PM
-    
-    # Allow submissions between 4:30 PM and 5:30 PM
-    start_time = dt_time(16, 30)
-    end_time = dt_time(17, 30)
-    
-    return start_time <= current_time <= end_time
-
-def are_ratings_valid(bml_rating, j_rating, vb_rating):
-    """Check if ratings are valid (all different and between 0-2)"""
-    ratings = [bml_rating, j_rating, vb_rating]
-    return len(set(ratings)) == 3 and all(0 <= r <= 2 for r in ratings)
-
-def save_ratings():
-    """Save ratings to pickle file"""
+def save_data(df):
     try:
         with open(RATINGS_FILE, 'wb') as f:
-            pickle.dump(st.session_state.ratings_df, f)
+            pickle.dump(df, f)
         return True
     except Exception as e:
-        st.error(f"Error saving ratings: {e}")
+        st.error(f"Error saving data: {e}")
         return False
 
 def get_color(val):
-    """Return color based on rating value"""
     colors = {0: 'background-color: green',
               1: 'background-color: yellow',
               2: 'background-color: red'}
     return colors.get(val, '')
 
-def add_default_ratings():
-    """Add default ratings (all 0) for today if no submission was made"""
-    current_date = datetime.now().date()
-    if (st.session_state.last_submission_date != current_date and 
-        current_date.strftime('%Y-%m-%d') not in st.session_state.ratings_df['Date'].values):
-        new_row = {
-            'Date': current_date.strftime('%Y-%m-%d'),
-            'BML': 0,
-            'J': 0,
-            'VB': 0
-        }
-        st.session_state.ratings_df = pd.concat([st.session_state.ratings_df, 
-                                               pd.DataFrame([new_row])], 
-                                               ignore_index=True)
-        save_ratings()
-
-# App title
-st.title('Daily Team Rating System')
-
-# Check if it's submission time and if ratings haven't been submitted today
-current_date = datetime.now().date()
-can_submit = (is_submission_time() and 
-             (st.session_state.last_submission_date is None or 
-              st.session_state.last_submission_date != current_date))
-
-if can_submit:
-    st.write("Please submit today's ratings (0 = Green, 1 = Yellow, 2 = Red)")
+def calculate_ratings():
+    if len(st.session_state['votes']) == 0:
+        return {'BML': 0, 'J': 0, 'VB': 0}
     
-    # Create three columns for input
-    col1, col2, col3 = st.columns(3)
+    vote_counts = {'BML': [], 'J': [], 'VB': []}
+    for vote in st.session_state['votes']:
+        for person in vote:
+            vote_counts[person].append(vote[person])
     
-    with col1:
-        bml_rating = st.selectbox('BML Rating', options=[0, 1, 2], key='bml')
-    with col2:
-        j_rating = st.selectbox('J Rating', options=[0, 1, 2], key='j')
-    with col3:
-        vb_rating = st.selectbox('VB Rating', options=[0, 1, 2], key='vb')
-    
-    if st.button('Submit Ratings'):
-        if are_ratings_valid(bml_rating, j_rating, vb_rating):
-            # Add new ratings to DataFrame
-            new_row = {
-                'Date': current_date.strftime('%Y-%m-%d'),
-                'BML': bml_rating,
-                'J': j_rating,
-                'VB': vb_rating
-            }
-            st.session_state.ratings_df = pd.concat([st.session_state.ratings_df, 
-                                                   pd.DataFrame([new_row])], 
-                                                   ignore_index=True)
-            
-            # Update last submission date and save
-            if save_ratings():
-                st.session_state.last_submission_date = current_date
-                st.success('Ratings submitted successfully!')
-            else:
-                st.error('Failed to save ratings. Please try again.')
+    ratings = {}
+    for person in vote_counts:
+        if vote_counts[person]:
+            avg = sum(vote_counts[person]) / len(vote_counts[person])
+            ratings[person] = min(2, max(0, round(avg)))
         else:
-            st.error('Invalid ratings. Each person must have a different rating (0, 1, or 2).')
-else:
-    if not is_submission_time():
-        st.info('Ratings can only be submitted around 5:00 PM.')
-        # Check if we need to add default ratings for today
-        if datetime.now().time() > dt_time(17, 30):  # After 5:30 PM
-            add_default_ratings()
-    elif st.session_state.last_submission_date == current_date:
-        st.info('Ratings have already been submitted for today.')
+            ratings[person] = 0
+    
+    return ratings
 
-# Display ratings table with colored cells
-if not st.session_state.ratings_df.empty:
-    st.write("### Rating History")
-    
-    # Sort DataFrame by date in descending order
-    df_display = st.session_state.ratings_df.sort_values('Date', ascending=False)
-    
-    # Apply color styling
-    styled_df = df_display.style.applymap(get_color, subset=['BML', 'J', 'VB'])
-    
+current_date = datetime.now().date().strftime('%Y-%m-%d')
+
+st.markdown('<div class="section-header">Submit Your Vote</div>', unsafe_allow_html=True)
+st.write("Rate each person (0 = Green, 1 = Yellow, 2 = Red)")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    bml_vote = st.selectbox('BML 👨‍🚀', options=[0, 1, 2], key='bml_vote')
+with col2:
+    j_vote = st.selectbox('Q Monkey 🐵', options=[0, 1, 2], key='j_vote')
+with col3:
+    vb_vote = st.selectbox('Rich Vish 💂‍♂️', options=[0, 1, 2], key='vb_vote')
+
+if st.button('Submit Vote'):
+    vote = {
+        'BML': bml_vote,
+        'J': j_vote,
+        'VB': vb_vote,
+        'timestamp': datetime.now()
+    }
+    st.session_state['votes'].append(vote)
+    st.success('Vote submitted successfully!')
+
+st.markdown('<div class="section-header">Today\'s Current Ratings</div>', unsafe_allow_html=True)
+
+current_ratings = calculate_ratings()
+
+current_df = pd.DataFrame([{
+    'Date': current_date,
+    'BML 👨‍🚀': current_ratings['BML'],
+    'Q Monkey 🐵': current_ratings['J'],
+    'Rich Vish 💂‍♂️': current_ratings['VB']
+}])
+
+styled_current = current_df.style.applymap(get_color, subset=['BML 👨‍🚀', 'Q Monkey 🐵', 'Rich Vish 💂‍♂️'])
+st.dataframe(styled_current)
+
+st.write(f"Total votes today: {len(st.session_state['votes'])}")
+
+st.empty()
+time.sleep(60)
+st.experimental_rerun()
+
+st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_html=True)
+
+historical_df = load_data()
+
+if len(st.session_state['votes']) > 0:
+    historical_df = historical_df[historical_df['Date'] != current_date]
+    # Rename columns for display
+    if not historical_df.empty:
+        historical_df = historical_df.rename(columns={
+            'BML': 'BML 👨‍🚀',
+            'J': 'Q Monkey 🐵',
+            'VB': 'Rich Vish 💂‍♂️'
+        })
+    historical_df = pd.concat([current_df, historical_df], ignore_index=True)
+    # Rename back for saving
+    save_df = historical_df.rename(columns={
+        'BML 👨‍🚀': 'BML',
+        'Q Monkey 🐵': 'J',
+        'Rich Vish 💂‍♂️': 'VB'
+    })
+    save_data(save_df)
+
+if not historical_df.empty:
+    styled_df = historical_df.style.applymap(get_color, subset=['BML 👨‍🚀', 'Q Monkey 🐵', 'Rich Vish 💂‍♂️'])
     st.dataframe(styled_df)
 else:
-    st.write("No ratings have been submitted yet.")
+    st.write("No historical data available yet.")
+
+if st.session_state['last_vote_time']:
+    last_vote_date = st.session_state['last_vote_time'].date()
+    if last_vote_date < datetime.now().date():
+        st.session_state['votes'] = []
+
+st.session_state['last_vote_time'] = datetime.now()
