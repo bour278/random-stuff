@@ -3,20 +3,25 @@ import pandas as pd
 import datetime
 import time
 import schedule
-import json
+import pickle
 from datetime import datetime, time as dt_time
 import os
 
+# File path for pickle storage
+RATINGS_FILE = 'ratings.pkl'
+
 # Initialize session state variables if they don't exist
 if 'ratings_df' not in st.session_state:
-    if os.path.exists('ratings.json'):
-        # Load existing data
-        with open('ratings.json', 'r') as f:
-            data = json.load(f)
-            st.session_state.ratings_df = pd.DataFrame(data)
-    else:
-        # Create empty DataFrame with required columns
+    try:
+        # Try to load existing data
+        with open(RATINGS_FILE, 'rb') as f:
+            st.session_state.ratings_df = pickle.load(f)
+    except (FileNotFoundError, EOFError, pickle.PickleError):
+        # Create new DataFrame if file doesn't exist or is corrupted
         st.session_state.ratings_df = pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+        # Save the initial empty DataFrame
+        with open(RATINGS_FILE, 'wb') as f:
+            pickle.dump(st.session_state.ratings_df, f)
 
 if 'last_submission_date' not in st.session_state:
     st.session_state.last_submission_date = None
@@ -38,9 +43,14 @@ def are_ratings_valid(bml_rating, j_rating, vb_rating):
     return len(set(ratings)) == 3 and all(0 <= r <= 2 for r in ratings)
 
 def save_ratings():
-    """Save ratings to JSON file"""
-    with open('ratings.json', 'w') as f:
-        json.dump(st.session_state.ratings_df.to_dict('records'), f)
+    """Save ratings to pickle file"""
+    try:
+        with open(RATINGS_FILE, 'wb') as f:
+            pickle.dump(st.session_state.ratings_df, f)
+        return True
+    except Exception as e:
+        st.error(f"Error saving ratings: {e}")
+        return False
 
 def get_color(val):
     """Return color based on rating value"""
@@ -100,13 +110,12 @@ if can_submit:
                                                    pd.DataFrame([new_row])], 
                                                    ignore_index=True)
             
-            # Update last submission date
-            st.session_state.last_submission_date = current_date
-            
-            # Save to file
-            save_ratings()
-            
-            st.success('Ratings submitted successfully!')
+            # Update last submission date and save
+            if save_ratings():
+                st.session_state.last_submission_date = current_date
+                st.success('Ratings submitted successfully!')
+            else:
+                st.error('Failed to save ratings. Please try again.')
         else:
             st.error('Invalid ratings. Each person must have a different rating (0, 1, or 2).')
 else:
