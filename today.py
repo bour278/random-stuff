@@ -77,7 +77,7 @@ def calculate_ratings():
     
     vote_counts = {'BML': [], 'J': [], 'VB': []}
     for vote in st.session_state['votes']:
-        for person in vote:
+        for person in ['BML', 'J', 'VB']:
             vote_counts[person].append(vote[person])
     
     ratings = {}
@@ -113,6 +113,7 @@ if st.button('Submit Vote'):
     }
     st.session_state['votes'].append(vote)
     st.success('Vote submitted successfully!')
+    st.rerun()
 
 st.markdown('<div class="section-header">Today\'s Current Ratings</div>', unsafe_allow_html=True)
 
@@ -130,9 +131,8 @@ st.dataframe(styled_current)
 
 st.write(f"Total votes today: {len(st.session_state['votes'])}")
 
-st.empty()
-time.sleep(60)
-st.experimental_rerun()
+if not st.session_state['votes']:
+    st.info("No votes submitted yet today")
 
 st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_html=True)
 
@@ -140,7 +140,6 @@ historical_df = load_data()
 
 if len(st.session_state['votes']) > 0:
     historical_df = historical_df[historical_df['Date'] != current_date]
-    # Rename columns for display
     if not historical_df.empty:
         historical_df = historical_df.rename(columns={
             'BML': 'BML 👨‍🚀',
@@ -148,7 +147,6 @@ if len(st.session_state['votes']) > 0:
             'VB': 'Rich Vish 💂‍♂️'
         })
     historical_df = pd.concat([current_df, historical_df], ignore_index=True)
-    # Rename back for saving
     save_df = historical_df.rename(columns={
         'BML 👨‍🚀': 'BML',
         'Q Monkey 🐵': 'J',
@@ -168,3 +166,12 @@ if st.session_state['last_vote_time']:
         st.session_state['votes'] = []
 
 st.session_state['last_vote_time'] = datetime.now()
+
+# Add auto-refresh using JavaScript
+st.markdown("""
+    <script>
+        setTimeout(function(){
+            window.location.reload();
+        }, 60000);
+    </script>
+    """, unsafe_allow_html=True)
