@@ -146,7 +146,7 @@ if len(st.session_state['votes']) > 0:
             'J': 'Q Monkey 🐵',
             'VB': 'Rich Vish 💂‍♂️'
         })
-    historical_df = pd.concat([current_df, historical_df], ignore_index=True)
+    historical_df = pd.concat([current_df, historical_df.drop_duplicates(subset=['Date'])], ignore_index=True)
     save_df = historical_df.rename(columns={
         'BML 👨‍🚀': 'BML',
         'Q Monkey 🐵': 'J',
