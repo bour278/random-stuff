@@ -3,10 +3,10 @@ import pandas as pd
 import datetime
 import time
 import pickle
-import plotly.graph_objects as go
-import numpy as np
 from datetime import datetime, time as dt_time
 import os
+import plotly.graph_objects as go
+import numpy as np
 
 st.set_page_config(page_title="RateHub 🍦")
 
@@ -38,7 +38,6 @@ st.markdown("""
     <div class="title">RateHub 🍦</div>
 """, unsafe_allow_html=True)
 
-# Constants for column names
 BML_COL = "BML 👨‍🚀"
 J_COL = "Q Monkey 🐵"
 VB_COL = "Rich Vish 💂‍♂️"
@@ -143,19 +142,15 @@ st.write(f"Total votes today: {len(st.session_state['votes'])}")
 if not st.session_state['votes']:
     st.info("No votes submitted yet today")
 
-# Create voting trends visualization
 st.markdown('<div class="section-header">Voting Trends</div>', unsafe_allow_html=True)
 
 if len(st.session_state['votes']) > 0:
-    # Prepare data for plotting
     vote_numbers = list(range(1, len(st.session_state['votes']) + 1))
     x = vote_numbers if len(vote_numbers) < 10 else np.log10(vote_numbers)
     x_title = "Number of Votes" if len(vote_numbers) < 10 else "Number of Votes (log scale)"
     
-    # Create traces for each person
     fig = go.Figure()
     
-    # BML trace
     bml_votes = [vote['BML'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
         x=x,
@@ -169,7 +164,6 @@ if len(st.session_state['votes']) > 0:
         showlegend=True
     ))
     
-    # J trace
     j_votes = [vote['J'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
         x=x,
@@ -183,7 +177,6 @@ if len(st.session_state['votes']) > 0:
         showlegend=True
     ))
     
-    # VB trace
     vb_votes = [vote['VB'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
         x=x,
@@ -197,7 +190,6 @@ if len(st.session_state['votes']) > 0:
         showlegend=True
     ))
     
-    # Update layout
     fig.update_layout(
         title='Voting Trends Over Time',
         xaxis_title=x_title,
@@ -221,11 +213,9 @@ if len(st.session_state['votes']) > 0:
         )
     )
     
-    # Add grid lines
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
     
-    # Display the plot
     st.plotly_chart(fig, use_container_width=True)
 
 st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_html=True)
@@ -233,22 +223,15 @@ st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_htm
 historical_df = load_data()
 
 if len(st.session_state['votes']) > 0:
-    # Remove today's entry if it exists
     historical_df = historical_df[historical_df['Date'] != current_date]
     
-    # Rename columns for display
     if not historical_df.empty:
         name_mapping = dict(zip(STORAGE_COLUMNS, DISPLAY_COLUMNS))
         historical_df = historical_df.rename(columns=name_mapping)
     
-    # Ensure current_df has unique index
-    current_df = current_df.copy()
-    current_df.index = [max(historical_df.index) + 1] if not historical_df.empty else [0]
+    historical_df = pd.concat([current_df, historical_df], ignore_index=True)
+    historical_df = historical_df.sort_values('Date', ascending=False).drop_duplicates(subset=['Date']).reset_index(drop=True)
     
-    # Concatenate with unique indices
-    historical_df = pd.concat([current_df, historical_df]).drop_duplicates(subset=['Date'])
-    
-    # Prepare for saving
     save_df = historical_df.copy()
     reverse_mapping = dict(zip(DISPLAY_COLUMNS, STORAGE_COLUMNS))
     save_df = save_df.rename(columns=reverse_mapping)
@@ -267,7 +250,6 @@ if st.session_state['last_vote_time']:
 
 st.session_state['last_vote_time'] = datetime.now()
 
-# Add auto-refresh using JavaScript
 st.markdown("""
     <script>
         setTimeout(function(){
