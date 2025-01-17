@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 import time
 import pickle
+import plotly.graph_objects as go
+import numpy as np
 from datetime import datetime, time as dt_time
 import os
 
@@ -36,8 +38,15 @@ st.markdown("""
     <div class="title">RateHub 🍦</div>
 """, unsafe_allow_html=True)
 
+# Constants for column names
+BML_COL = "BML 👨‍🚀"
+J_COL = "Q Monkey 🐵"
+VB_COL = "Rich Vish 💂‍♂️"
+DISPLAY_COLUMNS = [BML_COL, J_COL, VB_COL]
+STORAGE_COLUMNS = ['BML', 'J', 'VB']
+
 if 'ratings_df' not in st.session_state:
-    st.session_state['ratings_df'] = pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+    st.session_state['ratings_df'] = pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
 
 if 'votes' not in st.session_state:
     st.session_state['votes'] = []
@@ -52,9 +61,9 @@ def load_data():
         if os.path.exists(RATINGS_FILE):
             with open(RATINGS_FILE, 'rb') as f:
                 return pickle.load(f)
-        return pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
     except Exception:
-        return pd.DataFrame(columns=['Date', 'BML', 'J', 'VB'])
+        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
 
 def save_data(df):
     try:
@@ -98,11 +107,11 @@ st.write("Rate each person (0 = Green, 1 = Yellow, 2 = Red)")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    bml_vote = st.selectbox('BML 👨‍🚀', options=[0, 1, 2], key='bml_vote')
+    bml_vote = st.selectbox(BML_COL, options=[0, 1, 2], key='bml_vote')
 with col2:
-    j_vote = st.selectbox('Q Monkey 🐵', options=[0, 1, 2], key='j_vote')
+    j_vote = st.selectbox(J_COL, options=[0, 1, 2], key='j_vote')
 with col3:
-    vb_vote = st.selectbox('Rich Vish 💂‍♂️', options=[0, 1, 2], key='vb_vote')
+    vb_vote = st.selectbox(VB_COL, options=[0, 1, 2], key='vb_vote')
 
 if st.button('Submit Vote'):
     vote = {
@@ -121,12 +130,12 @@ current_ratings = calculate_ratings()
 
 current_df = pd.DataFrame([{
     'Date': current_date,
-    'BML 👨‍🚀': current_ratings['BML'],
-    'Q Monkey 🐵': current_ratings['J'],
-    'Rich Vish 💂‍♂️': current_ratings['VB']
+    BML_COL: current_ratings['BML'],
+    J_COL: current_ratings['J'],
+    VB_COL: current_ratings['VB']
 }])
 
-styled_current = current_df.style.applymap(get_color, subset=['BML 👨‍🚀', 'Q Monkey 🐵', 'Rich Vish 💂‍♂️'])
+styled_current = current_df.style.applymap(get_color, subset=DISPLAY_COLUMNS)
 st.dataframe(styled_current)
 
 st.write(f"Total votes today: {len(st.session_state['votes'])}")
@@ -134,28 +143,119 @@ st.write(f"Total votes today: {len(st.session_state['votes'])}")
 if not st.session_state['votes']:
     st.info("No votes submitted yet today")
 
+# Create voting trends visualization
+st.markdown('<div class="section-header">Voting Trends</div>', unsafe_allow_html=True)
+
+if len(st.session_state['votes']) > 0:
+    # Prepare data for plotting
+    vote_numbers = list(range(1, len(st.session_state['votes']) + 1))
+    x = vote_numbers if len(vote_numbers) < 10 else np.log10(vote_numbers)
+    x_title = "Number of Votes" if len(vote_numbers) < 10 else "Number of Votes (log scale)"
+    
+    # Create traces for each person
+    fig = go.Figure()
+    
+    # BML trace
+    bml_votes = [vote['BML'] for vote in st.session_state['votes']]
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=bml_votes,
+        mode='lines+markers+text',
+        name='BML',
+        text=['👨‍🚀'] * len(bml_votes),
+        textposition="middle center",
+        textfont=dict(size=20),
+        line=dict(color='#1f77b4'),
+        showlegend=True
+    ))
+    
+    # J trace
+    j_votes = [vote['J'] for vote in st.session_state['votes']]
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=j_votes,
+        mode='lines+markers+text',
+        name='Q Monkey',
+        text=['🐵'] * len(j_votes),
+        textposition="middle center",
+        textfont=dict(size=20),
+        line=dict(color='#ff7f0e'),
+        showlegend=True
+    ))
+    
+    # VB trace
+    vb_votes = [vote['VB'] for vote in st.session_state['votes']]
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=vb_votes,
+        mode='lines+markers+text',
+        name='Rich Vish',
+        text=['💂‍♂️'] * len(vb_votes),
+        textposition="middle center",
+        textfont=dict(size=20),
+        line=dict(color='#2ca02c'),
+        showlegend=True
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        title='Voting Trends Over Time',
+        xaxis_title=x_title,
+        yaxis_title='Rating',
+        yaxis=dict(
+            tickmode='array',
+            ticktext=['Green 🟩', 'Yellow 🟨', 'Red 🟥'],
+            tickvals=[0, 1, 2],
+            range=[-0.5, 2.5]
+        ),
+        plot_bgcolor='rgba(255,255,255,0.9)',
+        paper_bgcolor='rgba(255,255,255,0)',
+        font=dict(color='#FF6B35'),
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255,255,255,0.8)'
+        )
+    )
+    
+    # Add grid lines
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+    
+    # Display the plot
+    st.plotly_chart(fig, use_container_width=True)
+
 st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_html=True)
 
 historical_df = load_data()
 
 if len(st.session_state['votes']) > 0:
+    # Remove today's entry if it exists
     historical_df = historical_df[historical_df['Date'] != current_date]
+    
+    # Rename columns for display
     if not historical_df.empty:
-        historical_df = historical_df.rename(columns={
-            'BML': 'BML 👨‍🚀',
-            'J': 'Q Monkey 🐵',
-            'VB': 'Rich Vish 💂‍♂️'
-        })
-    historical_df = pd.concat([current_df, historical_df.drop_duplicates(subset=['Date'])], ignore_index=True)
-    save_df = historical_df.rename(columns={
-        'BML 👨‍🚀': 'BML',
-        'Q Monkey 🐵': 'J',
-        'Rich Vish 💂‍♂️': 'VB'
-    })
+        name_mapping = dict(zip(STORAGE_COLUMNS, DISPLAY_COLUMNS))
+        historical_df = historical_df.rename(columns=name_mapping)
+    
+    # Ensure current_df has unique index
+    current_df = current_df.copy()
+    current_df.index = [max(historical_df.index) + 1] if not historical_df.empty else [0]
+    
+    # Concatenate with unique indices
+    historical_df = pd.concat([current_df, historical_df]).drop_duplicates(subset=['Date'])
+    
+    # Prepare for saving
+    save_df = historical_df.copy()
+    reverse_mapping = dict(zip(DISPLAY_COLUMNS, STORAGE_COLUMNS))
+    save_df = save_df.rename(columns=reverse_mapping)
     save_data(save_df)
 
 if not historical_df.empty:
-    styled_df = historical_df.style.applymap(get_color, subset=['BML 👨‍🚀', 'Q Monkey 🐵', 'Rich Vish 💂‍♂️'])
+    styled_df = historical_df.style.applymap(get_color, subset=DISPLAY_COLUMNS)
     st.dataframe(styled_df)
 else:
     st.write("No historical data available yet.")
