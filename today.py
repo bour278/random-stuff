@@ -12,28 +12,11 @@ st.set_page_config(page_title="RateHub 🍦")
 
 st.markdown("""
     <style>
-        .title {
-            color: #FF6B35;
-            font-size: 3em;
-            font-weight: bold;
-            margin-bottom: 1em;
-        }
-        .stButton>button {
-            background-color: #FF6B35;
-            color: white;
-        }
-        .stButton>button:hover {
-            background-color: #FF8C61;
-        }
-        div[data-testid="stSelectbox"] label {
-            color: #FF6B35;
-        }
-        .section-header {
-            color: #FF6B35;
-            font-size: 1.5em;
-            font-weight: bold;
-            margin-top: 1em;
-        }
+        .title {color: #FF6B35;font-size: 3em;font-weight: bold;margin-bottom: 1em;}
+        .stButton>button {background-color: #FF6B35;color: white;}
+        .stButton>button:hover {background-color: #FF8C61;}
+        div[data-testid="stSelectbox"] label {color: #FF6B35;}
+        .section-header {color: #FF6B35;font-size: 1.5em;font-weight: bold;margin-top: 1em;}
     </style>
     <div class="title">RateHub 🍦</div>
 """, unsafe_allow_html=True)
@@ -43,26 +26,28 @@ J_COL = "Q Monkey 🐵"
 VB_COL = "Rich Vish 💂‍♂️"
 DISPLAY_COLUMNS = [BML_COL, J_COL, VB_COL]
 STORAGE_COLUMNS = ['BML', 'J', 'VB']
-
-if 'ratings_df' not in st.session_state:
-    st.session_state['ratings_df'] = pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
-
-if 'votes' not in st.session_state:
-    st.session_state['votes'] = []
-
-if 'last_vote_time' not in st.session_state:
-    st.session_state['last_vote_time'] = None
-
 RATINGS_FILE = 'ratings.pkl'
+
+def init_session_state():
+    if 'daily_votes' not in st.session_state:
+        st.session_state['daily_votes'] = {}
+    if 'historical_data' not in st.session_state:
+        st.session_state['historical_data'] = pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
+        st.session_state['historical_data'].set_index('Date', inplace=True)
 
 def load_data():
     try:
         if os.path.exists(RATINGS_FILE):
             with open(RATINGS_FILE, 'rb') as f:
-                return pickle.load(f)
-        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
+                data = pickle.load(f)
+                if not isinstance(data, pd.DataFrame):
+                    return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS).set_index('Date')
+                if 'Date' not in data.index.name:
+                    data.set_index('Date', inplace=True)
+                return data
+        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS).set_index('Date')
     except Exception:
-        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS)
+        return pd.DataFrame(columns=['Date'] + STORAGE_COLUMNS).set_index('Date')
 
 def save_data(df):
     try:
@@ -79,32 +64,26 @@ def get_color(val):
               2: 'background-color: red'}
     return colors.get(val, '')
 
-def calculate_ratings():
-    if len(st.session_state['votes']) == 0:
+def calculate_daily_rating():
+    votes = st.session_state['daily_votes'].get(current_date, [])
+    if not votes:
         return {'BML': 0, 'J': 0, 'VB': 0}
     
-    vote_counts = {'BML': [], 'J': [], 'VB': []}
-    for vote in st.session_state['votes']:
-        for person in ['BML', 'J', 'VB']:
-            vote_counts[person].append(vote[person])
-    
     ratings = {}
-    for person in vote_counts:
-        if vote_counts[person]:
-            avg = sum(vote_counts[person]) / len(vote_counts[person])
-            ratings[person] = min(2, max(0, round(avg)))
-        else:
-            ratings[person] = 0
-    
+    for person in ['BML', 'J', 'VB']:
+        person_votes = [vote[person] for vote in votes]
+        avg = sum(person_votes) / len(person_votes)
+        ratings[person] = min(2, max(0, round(avg)))
     return ratings
 
+init_session_state()
 current_date = datetime.now().date().strftime('%Y-%m-%d')
+st.session_state['historical_data'] = load_data()
 
 st.markdown('<div class="section-header">Submit Your Vote</div>', unsafe_allow_html=True)
 st.write("Rate each person (0 = Green, 1 = Yellow, 2 = Red)")
 
 col1, col2, col3 = st.columns(3)
-
 with col1:
     bml_vote = st.selectbox(BML_COL, options=[0, 1, 2], key='bml_vote')
 with col2:
@@ -113,22 +92,26 @@ with col3:
     vb_vote = st.selectbox(VB_COL, options=[0, 1, 2], key='vb_vote')
 
 if st.button('Submit Vote'):
-    vote = {
-        'BML': bml_vote,
-        'J': j_vote,
-        'VB': vb_vote,
-        'timestamp': datetime.now()
-    }
-    st.session_state['votes'].append(vote)
+    if current_date not in st.session_state['daily_votes']:
+        st.session_state['daily_votes'][current_date] = []
+    
+    vote = {'BML': bml_vote, 'J': j_vote, 'VB': vb_vote}
+    st.session_state['daily_votes'][current_date].append(vote)
+    
+    current_ratings = calculate_daily_rating()
+    st.session_state['historical_data'].loc[current_date] = [
+        current_ratings['BML'],
+        current_ratings['J'],
+        current_ratings['VB']
+    ]
+    
+    save_data(st.session_state['historical_data'])
     st.success('Vote submitted successfully!')
     st.rerun()
 
 st.markdown('<div class="section-header">Today\'s Current Ratings</div>', unsafe_allow_html=True)
-
-current_ratings = calculate_ratings()
-
+current_ratings = calculate_daily_rating()
 current_df = pd.DataFrame([{
-    'Date': current_date,
     BML_COL: current_ratings['BML'],
     J_COL: current_ratings['J'],
     VB_COL: current_ratings['VB']
@@ -137,53 +120,50 @@ current_df = pd.DataFrame([{
 styled_current = current_df.style.applymap(get_color, subset=DISPLAY_COLUMNS)
 st.dataframe(styled_current)
 
-st.write(f"Total votes today: {len(st.session_state['votes'])}")
+daily_votes = st.session_state['daily_votes'].get(current_date, [])
+st.write(f"Total votes today: {len(daily_votes)}")
 
-if not st.session_state['votes']:
+if not daily_votes:
     st.info("No votes submitted yet today")
 
-st.markdown('<div class="section-header">Voting Trends</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Voting Trends (Last 10 Days)</div>', unsafe_allow_html=True)
 
-if len(st.session_state['votes']) > 0:
-    vote_numbers = list(range(1, len(st.session_state['votes']) + 1))
-    x = vote_numbers if len(vote_numbers) < 10 else np.log10(vote_numbers)
-    x_title = "Number of Votes" if len(vote_numbers) < 10 else "Number of Votes (log scale)"
+if not st.session_state['historical_data'].empty:
+    df = st.session_state['historical_data'].copy()
+    df = df.sort_index(ascending=True).tail(10)
     
     fig = go.Figure()
     
-    bml_votes = [vote['BML'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
-        x=x,
-        y=bml_votes,
+        x=df.index,
+        y=df['BML'],
         mode='lines+markers+text',
         name='BML',
-        text=['👨‍🚀'] * len(bml_votes),
+        text=['👨‍🚀'] * len(df),
         textposition="middle center",
         textfont=dict(size=20),
         line=dict(color='#1f77b4'),
         showlegend=True
     ))
     
-    j_votes = [vote['J'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
-        x=x,
-        y=j_votes,
+        x=df.index,
+        y=df['J'],
         mode='lines+markers+text',
         name='Q Monkey',
-        text=['🐵'] * len(j_votes),
+        text=['🐵'] * len(df),
         textposition="middle center",
         textfont=dict(size=20),
         line=dict(color='#ff7f0e'),
         showlegend=True
     ))
     
-    vb_votes = [vote['VB'] for vote in st.session_state['votes']]
     fig.add_trace(go.Scatter(
-        x=x,
-        y=vb_votes,
+        x=df.index,
+        y=df['VB'],
         mode='lines+markers+text',
         name='Rich Vish',
-        text=['💂‍♂️'] * len(vb_votes),
+        text=['💂‍♂️'] * len(df),
         textposition="middle center",
         textfont=dict(size=20),
         line=dict(color='#2ca02c'),
@@ -191,8 +171,8 @@ if len(st.session_state['votes']) > 0:
     ))
     
     fig.update_layout(
-        title='Voting Trends Over Time',
-        xaxis_title=x_title,
+        title='Last 10 Days Rating History',
+        xaxis_title="Date",
         yaxis_title='Rating',
         yaxis=dict(
             tickmode='array',
@@ -220,35 +200,14 @@ if len(st.session_state['votes']) > 0:
 
 st.markdown('<div class="section-header">Rating History</div>', unsafe_allow_html=True)
 
-historical_df = load_data()
-
-if len(st.session_state['votes']) > 0:
-    historical_df = historical_df[historical_df['Date'] != current_date]
-    
-    if not historical_df.empty:
-        name_mapping = dict(zip(STORAGE_COLUMNS, DISPLAY_COLUMNS))
-        historical_df = historical_df.rename(columns=name_mapping)
-    
-    historical_df = pd.concat([current_df, historical_df], ignore_index=True)
-    historical_df = historical_df.sort_values('Date', ascending=False).drop_duplicates(subset=['Date']).reset_index(drop=True)
-    
-    save_df = historical_df.copy()
-    reverse_mapping = dict(zip(DISPLAY_COLUMNS, STORAGE_COLUMNS))
-    save_df = save_df.rename(columns=reverse_mapping)
-    save_data(save_df)
-
-if not historical_df.empty:
-    styled_df = historical_df.style.applymap(get_color, subset=DISPLAY_COLUMNS)
+if not st.session_state['historical_data'].empty:
+    df_display = st.session_state['historical_data'].copy()
+    df_display.index.name = 'Date'
+    df_display = df_display.rename(columns=dict(zip(STORAGE_COLUMNS, DISPLAY_COLUMNS)))
+    styled_df = df_display.style.applymap(get_color, subset=DISPLAY_COLUMNS)
     st.dataframe(styled_df)
 else:
     st.write("No historical data available yet.")
-
-if st.session_state['last_vote_time']:
-    last_vote_date = st.session_state['last_vote_time'].date()
-    if last_vote_date < datetime.now().date():
-        st.session_state['votes'] = []
-
-st.session_state['last_vote_time'] = datetime.now()
 
 st.markdown("""
     <script>
