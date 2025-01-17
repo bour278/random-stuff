@@ -126,11 +126,14 @@ st.write(f"Total votes today: {len(daily_votes)}")
 if not daily_votes:
     st.info("No votes submitted yet today")
 
-st.markdown('<div class="section-header">Voting Trends (Last 10 Days)</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-header">Voting Trends (Last 10 Votes)</div>', unsafe_allow_html=True)
 
 if not st.session_state['historical_data'].empty:
     df = st.session_state['historical_data'].copy()
-    df = df.sort_index(ascending=True).tail(10)
+    df = df.sort_index(ascending=True)
+    if len(df) > 10:
+        start_idx = len(df) - 10
+        df = df.iloc[start_idx:]
     
     fig = go.Figure()
     
@@ -171,7 +174,7 @@ if not st.session_state['historical_data'].empty:
     ))
     
     fig.update_layout(
-        title='Last 10 Days Rating History',
+        title='Last 10 Votes Rating History',
         xaxis_title="Date",
         yaxis_title='Rating',
         yaxis=dict(
